@@ -72,12 +72,13 @@ team_t team = {
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp)-DSIZE)))
 
 static void *heap_listp;
+static void *prev_fit;; /* for next-fit */
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
+static void *find_next_fit(size_t asize);
+static void *find_best_fit(size_t asize);
 static void place(void *bp, size_t asize);
-//for next-fit
-static void *prev_fit;;
 
 /* 
  * mm_init - initialize the malloc package.
@@ -102,6 +103,92 @@ int mm_init(void)
         return -1;
     }
     return 0;
+}
+
+
+/* 
+ * mm_malloc - Allocate a block by incrementing the brk pointer.
+ *     Always allocate a block whose size is a multiple of the alignment.
+ */
+void *mm_malloc(size_t size)
+{
+    int asize = ALIGN(size + SIZE_T_SIZE);
+    // void *p = mem_sbrk(asize);
+    // if (p == (void *)-1)
+    // return NULL;
+    // else {
+    //     *(size_t *)p = size;
+    //     return (void *)((char *)p + SIZE_T_SIZE);
+    // }
+
+    // size_t asize;      /* Adjusted block size */
+    size_t extendsize; /* Amount to extend heap if no fit */
+    char *bp;
+
+    // /* Ignore spurious requests */
+    // if (size == 0)
+    // {
+    //     return NULL;
+    // }
+
+    // /* Adjust block size to include overhead and alignment reqs. */
+    // if (size <= DSIZE)
+    // {
+    //     asize = 2 * DSIZE;
+    // }
+    // else
+    // {
+    //     asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
+    // }
+
+    /* Search the free list for a fit */
+    if ((bp = find_best_fit(asize)) != NULL)
+    {
+        place(bp, asize);
+        return bp;
+    }
+
+    /* No fit found. Get more memory and place the block */
+    extendsize = MAX(asize, CHUNKSIZE);
+    if ((bp = extend_heap(extendsize / WSIZE)) == NULL)
+    {
+        return NULL;
+    }
+    place(bp, asize);
+    return bp;
+}
+
+/*
+ * mm_free - Freeing a block does nothing.
+ */
+void mm_free(void *ptr)
+{
+    size_t size = GET_SIZE(HDRP(ptr));
+
+    PUT(HDRP(ptr), PACK(size, 0));
+    PUT(FTRP(ptr), PACK(size, 0));
+    coalesce(ptr);
+}
+
+/*
+ * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
+ */
+void *mm_realloc(void *ptr, size_t size)
+{
+    void *oldptr = ptr;
+    void *newptr;
+    size_t copySize;
+
+    newptr = mm_malloc(size);
+    if (newptr == NULL)
+        return NULL;
+    // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    copySize = GET_SIZE(HDRP(oldptr));
+    if (size < copySize)
+        copySize = size;
+    memcpy(newptr, oldptr, copySize);
+    mm_free(oldptr);
+    return newptr;
 }
 
 static void *extend_heap(size_t words)
@@ -166,52 +253,6 @@ static void *coalesce(void *bp)
     return bp;
 }
 
-static void *find_fit(size_t asize)
-{
-    /* First-fit search */
-    void *bp;
-
-    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
-    {
-        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
-        {
-            return bp;
-        }
-    }
-    return NULL; /* no fit */
-
-// #endif
-}
-
-static void *find_next_fit(size_t asize)
-{
-    /* Next-fit search */
-    char *bp;
-    //뒤에서 한번 찾고
-    for (bp = prev_fit; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
-    {
-        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
-        {
-            prev_fit = bp;
-            return bp;
-        }
-    }
-
-    // 없으면 다 앞에서 부터 찾기
-    for (bp = heap_listp; bp < prev_fit; bp = NEXT_BLKP(bp))
-    {
-        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
-        {
-            prev_fit = bp;
-            return bp;
-        }
-    }
-    return NULL; /* no fit */
-
-// #endif
-}
-
-
 static void place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));
@@ -232,115 +273,117 @@ static void place(void *bp, size_t asize)
     }
 }
 
-/* 
- * mm_malloc - Allocate a block by incrementing the brk pointer.
- *     Always allocate a block whose size is a multiple of the alignment.
- */
-void *mm_malloc(size_t size)
+//score: 53
+static void *find_fit(size_t asize)
 {
-    int asize = ALIGN(size + SIZE_T_SIZE);
-    // void *p = mem_sbrk(asize);
-    // if (p == (void *)-1)
-    // return NULL;
-    // else {
-    //     *(size_t *)p = size;
-    //     return (void *)((char *)p + SIZE_T_SIZE);
-    // }
+    /* First-fit search */
+    void *bp;
 
-    // size_t asize;      /* Adjusted block size */
-    size_t extendsize; /* Amount to extend heap if no fit */
-    char *bp;
-
-    // /* Ignore spurious requests */
-    // if (size == 0)
-    // {
-    //     return NULL;
-    // }
-
-    // /* Adjust block size to include overhead and alignment reqs. */
-    // if (size <= DSIZE)
-    // {
-    //     asize = 2 * DSIZE;
-    // }
-    // else
-    // {
-    //     asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
-    // }
-
-    /* Search the free list for a fit */
-    if ((bp = find_next_fit(asize)) != NULL)
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
     {
-        place(bp, asize);
-        return bp;
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
+        {
+            return bp;
+        }
+    }
+    return NULL; /* no fit */
+
+// #endif
+}
+
+//score: 82
+static void *find_next_fit(size_t asize)
+{
+    /* Next-fit search */
+    void *bp;
+    //뒤에서 한번 찾고
+    for (bp = prev_fit; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
+    {
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
+        {
+            prev_fit = bp;
+            return bp;
+        }
     }
 
-    /* No fit found. Get more memory and place the block */
-    extendsize = MAX(asize, CHUNKSIZE);
-    if ((bp = extend_heap(extendsize / WSIZE)) == NULL)
+    // 없으면 다 앞에서 부터 찾기
+    for (bp = heap_listp; bp < prev_fit; bp = NEXT_BLKP(bp))
     {
-        return NULL;
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
+        {
+            prev_fit = bp;
+            return bp;
+        }
     }
-    place(bp, asize);
-    return bp;
+    return NULL; /* no fit */
 }
 
-/*
- * mm_free - Freeing a block does nothing.
- */
-void mm_free(void *ptr)
+//score: 54
+static void *find_best_fit(size_t asize)
 {
-    size_t size = GET_SIZE(HDRP(ptr));
+    /* Best-fit search */
+    void *bp;
+    void *best_bp;
+    int flag = 0;
 
-    PUT(HDRP(ptr), PACK(size, 0));
-    PUT(FTRP(ptr), PACK(size, 0));
-    coalesce(ptr);
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
+    {
+        if ((flag==0)&& (!GET_ALLOC(HDRP(bp))) && (asize <= GET_SIZE(HDRP(bp)))){
+            flag = 1;
+            best_bp = bp;
+        }
+        else if ((flag==1)&&(!GET_ALLOC(HDRP(bp))) && (asize <= GET_SIZE(HDRP(bp))) && (GET_SIZE(HDRP(best_bp))>GET_SIZE(HDRP(bp))))
+        {   
+            best_bp = bp;
+        }
+    }
+    if (flag == 1){
+        return best_bp;
+    }
+    else{
+        return NULL; /* no fit */
+    }
 }
 
-/*
- * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
- */
-void *mm_realloc(void *ptr, size_t size)
+
+void main()
 {
-    void *oldptr = ptr;
-    void *newptr;
-    size_t copySize;
+    void *vp;
+    if (vp == NULL){
+        printf("ok\n\n");
+    }
 
-    newptr = mm_malloc(size);
-    if (newptr == NULL)
-        return NULL;
-    // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
-    copySize = GET_SIZE(HDRP(oldptr));
-    if (size < copySize)
-        copySize = size;
-    memcpy(newptr, oldptr, copySize);
-    mm_free(oldptr);
-    return newptr;
+    mem_init();
+    mm_init();
+    printf("%p\n", heap_listp);
+    printf("header heap: %p \t\t header heap get data:%c \t footer heap: %p\n", HDRP(heap_listp), GET(HDRP(heap_listp)), (FTRP(heap_listp)));
+    
+    void *first_fit_p = find_fit(1);
+    void *second_fit_p = find_next_fit(1);
+
+    printf("header first_fit_p: %p \t\t header first_fit_p GET data:%d \t footer first_fit_p: %p\n", HDRP(first_fit_p), GET(HDRP(first_fit_p)), (FTRP(first_fit_p)));
+    printf("header second_fit_p: %p \t\t header second_fit_p GET data:%d \t footer second_fit_p: %p\n", HDRP(second_fit_p), GET(HDRP(second_fit_p)), (FTRP(second_fit_p)));
+
+
+    // printf("header NEXTBLKP: %p \t header NEXTBLKP data:%d \t NEXTBLKP: %p\n", HDRP(NEXT_BLKP(freep)), GET(HDRP(NEXT_BLKP(freep))), ((NEXT_BLKP(freep))));
+
+    int *p = mm_malloc(9);
+    *p = 100;
+
+    int *p1 = mm_malloc(9);
+    *p1 = 100;
+
+    mm_free(p);
+    p = mm_malloc(9);
+    *p = 100;
+
+    mm_malloc(1000);
+    mm_malloc(9);
+    // first_fit_p = find_fit(1);
+    // second_fit_p = find_next_fit(1);
+    // printf("header first_fit_p: %p \t\t header first_fit_p GET data:%d \t footer first_fit_p: %p\n", HDRP(first_fit_p), GET(HDRP(first_fit_p)), (FTRP(first_fit_p)));
+    // printf("header second_fit_p: %p \t\t header second_fit_p GET data:%d \t footer second_fit_p: %p\n", HDRP(second_fit_p), GET(HDRP(second_fit_p)), (FTRP(second_fit_p)));
+
+    
+    return;
 }
-
-// void main()
-// {
-//     mem_init();
-//     mm_init();
-//     printf("%p\n", heap_listp);
-//     printf("header heap: %p \t\t header heap get data:%c \t footer heap: %p\n", HDRP(heap_listp), GET(HDRP(heap_listp)), (FTRP(heap_listp)));
-    
-//     void *first_fit_p = find_fit(1);
-//     void *second_fit_p = find_next_fit(1);
-
-//     printf("header first_fit_p: %p \t\t header first_fit_p GET data:%d \t footer first_fit_p: %p\n", HDRP(first_fit_p), GET(HDRP(first_fit_p)), (FTRP(first_fit_p)));
-//     printf("header second_fit_p: %p \t\t header second_fit_p GET data:%d \t footer second_fit_p: %p\n", HDRP(second_fit_p), GET(HDRP(second_fit_p)), (FTRP(second_fit_p)));
-
-
-//     // printf("header NEXTBLKP: %p \t header NEXTBLKP data:%d \t NEXTBLKP: %p\n", HDRP(NEXT_BLKP(freep)), GET(HDRP(NEXT_BLKP(freep))), ((NEXT_BLKP(freep))));
-
-//     int *p = mm_malloc(9);
-//     *p = 100;
-
-//     // first_fit_p = find_fit(1);
-//     // second_fit_p = find_next_fit(1);
-//     printf("header first_fit_p: %p \t\t header first_fit_p GET data:%d \t footer first_fit_p: %p\n", HDRP(first_fit_p), GET(HDRP(first_fit_p)), (FTRP(first_fit_p)));
-//     printf("header second_fit_p: %p \t\t header second_fit_p GET data:%d \t footer second_fit_p: %p\n", HDRP(second_fit_p), GET(HDRP(second_fit_p)), (FTRP(second_fit_p)));
-
-    
-//     return;
-// }
