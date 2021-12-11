@@ -316,3 +316,31 @@ void *mm_realloc(void *ptr, size_t size)
     mm_free(oldptr);
     return newptr;
 }
+
+// void main()
+// {
+//     mem_init();
+//     mm_init();
+//     printf("%p\n", heap_listp);
+//     printf("header heap: %p \t\t header heap get data:%c \t footer heap: %p\n", HDRP(heap_listp), GET(HDRP(heap_listp)), (FTRP(heap_listp)));
+    
+//     void *first_fit_p = find_fit(1);
+//     void *second_fit_p = find_next_fit(1);
+
+//     printf("header first_fit_p: %p \t\t header first_fit_p GET data:%d \t footer first_fit_p: %p\n", HDRP(first_fit_p), GET(HDRP(first_fit_p)), (FTRP(first_fit_p)));
+//     printf("header second_fit_p: %p \t\t header second_fit_p GET data:%d \t footer second_fit_p: %p\n", HDRP(second_fit_p), GET(HDRP(second_fit_p)), (FTRP(second_fit_p)));
+
+
+//     // printf("header NEXTBLKP: %p \t header NEXTBLKP data:%d \t NEXTBLKP: %p\n", HDRP(NEXT_BLKP(freep)), GET(HDRP(NEXT_BLKP(freep))), ((NEXT_BLKP(freep))));
+
+//     int *p = mm_malloc(9);
+//     *p = 100;
+
+//     // first_fit_p = find_fit(1);
+//     // second_fit_p = find_next_fit(1);
+//     printf("header first_fit_p: %p \t\t header first_fit_p GET data:%d \t footer first_fit_p: %p\n", HDRP(first_fit_p), GET(HDRP(first_fit_p)), (FTRP(first_fit_p)));
+//     printf("header second_fit_p: %p \t\t header second_fit_p GET data:%d \t footer second_fit_p: %p\n", HDRP(second_fit_p), GET(HDRP(second_fit_p)), (FTRP(second_fit_p)));
+
+    
+//     return;
+// }
