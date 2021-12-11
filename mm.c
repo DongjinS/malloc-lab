@@ -76,6 +76,8 @@ static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
+//for next-fit
+static void *prev_fit;;
 
 /* 
  * mm_init - initialize the malloc package.
@@ -93,7 +95,7 @@ int mm_init(void)
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1)); /* Prologue footer */
     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));     /* Epilogue header */
     heap_listp += (2 * WSIZE);                     //실제로 사용할 위치는 epilougue header 전이기 때문에 prologue eplilogue를 가르킨다?
-
+    prev_fit = heap_listp;
     /* Extended the empty heap with a free block of CHUNKSIZE bytes */
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
     {
@@ -159,6 +161,8 @@ static void *coalesce(void *bp)
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
+
+    prev_fit = bp;
     return bp;
 }
 
@@ -179,11 +183,40 @@ static void *find_fit(size_t asize)
 // #endif
 }
 
+static void *find_next_fit(size_t asize)
+{
+    /* Next-fit search */
+    char *bp;
+    //뒤에서 한번 찾고
+    for (bp = prev_fit; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
+    {
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
+        {
+            prev_fit = bp;
+            return bp;
+        }
+    }
+
+    // 없으면 다 앞에서 부터 찾기
+    for (bp = heap_listp; bp < prev_fit; bp = NEXT_BLKP(bp))
+    {
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
+        {
+            prev_fit = bp;
+            return bp;
+        }
+    }
+    return NULL; /* no fit */
+
+// #endif
+}
+
+
 static void place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));
 
-    // 필요한 블록 이외에 남는게 16바이트 이상이면
+    // 필요한 블록 이외에 남는게 16바이트 이상이면 - free header, footer 들어갈 자리 2워드
     if ((csize - asize) >= (2 * DSIZE))
     {
         PUT(HDRP(bp), PACK(asize, 1));
@@ -235,7 +268,7 @@ void *mm_malloc(size_t size)
     // }
 
     /* Search the free list for a fit */
-    if ((bp = find_fit(asize)) != NULL)
+    if ((bp = find_next_fit(asize)) != NULL)
     {
         place(bp, asize);
         return bp;
@@ -284,22 +317,30 @@ void *mm_realloc(void *ptr, size_t size)
     return newptr;
 }
 
-// void main(){
+// void main()
+// {
 //     mem_init();
 //     mm_init();
 //     printf("%p\n", heap_listp);
-//     printf("header_heap: %p\t footer_heap: %p\n", HDRP(heap_listp), FTRP(heap_listp));
-//     int *p = mm_malloc(1);
+//     printf("header heap: %p \t\t header heap get data:%c \t footer heap: %p\n", HDRP(heap_listp), GET(HDRP(heap_listp)), (FTRP(heap_listp)));
+    
+//     void *first_fit_p = find_fit(1);
+//     void *second_fit_p = find_next_fit(1);
+
+//     printf("header first_fit_p: %p \t\t header first_fit_p GET data:%d \t footer first_fit_p: %p\n", HDRP(first_fit_p), GET(HDRP(first_fit_p)), (FTRP(first_fit_p)));
+//     printf("header second_fit_p: %p \t\t header second_fit_p GET data:%d \t footer second_fit_p: %p\n", HDRP(second_fit_p), GET(HDRP(second_fit_p)), (FTRP(second_fit_p)));
+
+
+//     // printf("header NEXTBLKP: %p \t header NEXTBLKP data:%d \t NEXTBLKP: %p\n", HDRP(NEXT_BLKP(freep)), GET(HDRP(NEXT_BLKP(freep))), ((NEXT_BLKP(freep))));
+
+//     int *p = mm_malloc(9);
 //     *p = 100;
-//     printf("header_heap: %p\t footer_heap: %p\n", HDRP(heap_listp), FTRP(heap_listp));
-//     printf("header_p: %p\t footer_p:%p\n", HDRP(p), FTRP(p));
-//     printf("%p\t%d\n", p, *p);
-//     mm_free(p);
-//     printf("=============\n\n");
-//     printf("header_heap: %p\t footer_heap: %p\n", HDRP(heap_listp), FTRP(heap_listp));
-//     printf("header_p: %p\t footer_p:%p\n", HDRP(p), FTRP(p));
-//     printf("%p\t%d\n", p, *p);
 
+//     // first_fit_p = find_fit(1);
+//     // second_fit_p = find_next_fit(1);
+//     printf("header first_fit_p: %p \t\t header first_fit_p GET data:%d \t footer first_fit_p: %p\n", HDRP(first_fit_p), GET(HDRP(first_fit_p)), (FTRP(first_fit_p)));
+//     printf("header second_fit_p: %p \t\t header second_fit_p GET data:%d \t footer second_fit_p: %p\n", HDRP(second_fit_p), GET(HDRP(second_fit_p)), (FTRP(second_fit_p)));
 
+    
 //     return;
 // }
