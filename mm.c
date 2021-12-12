@@ -24,7 +24,7 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "jungle3rd_6th_week_4",
+    "jungle3rd_week6_team4_implicit",
     /* First member's full name */
     "Dongjin Shin",
     /* First member's email address */
@@ -41,7 +41,7 @@ team_t team = {
 // size < 0 -> 0, size <= 8 -> 8, size > 8 -> 8의 배수로
 #define ALIGN(size) (((size) + (ALIGNMENT - 1)) & ~0x7)
 
-//sizeof(size_t) = 10, ALIGN(sizeof(size_t)) = 16
+//sizeof(size_t) = 8, ALIGN(sizeof(size_t)) = 8
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 /* Basic constants and macros */
@@ -55,8 +55,8 @@ team_t team = {
 #define PACK(size, alloc) ((size) | (alloc))
 
 /* Read and write a word at adress p */
-#define GET(p) (*(unsigned int *)(p))
-#define PUT(p, val) (*(unsigned int *)(p) = (val))
+#define GET(p) (*(size_t *)(p))
+#define PUT(p, val) (*(size_t *)(p) = (val))
 
 /* Read the size and allocated fields from address p */
 #define GET_SIZE(p) (GET(p) & ~0x7)
@@ -92,7 +92,7 @@ int mm_init(void)
     }
     PUT(heap_listp, 0);                            /* Alignment padding */
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1)); /* Prologue header */
-    // PACK(DSIZE, 1) = 8 | 1 = 9 = 1001 = 100 / 1 = 8/1
+    /* PACK(DSIZE, 1) = 8 | 1 = 9 = 1001 = 100 / 1 = 8/1  */
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1)); /* Prologue footer */
     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));     /* Epilogue header */
     heap_listp += (2 * WSIZE);                     //실제로 사용할 위치는 epilougue header 전이기 때문에 prologue eplilogue를 가르킨다?
@@ -142,7 +142,7 @@ void *mm_malloc(size_t size)
     // }
 
     /* Search the free list for a fit */
-    if ((bp = find_best_fit(asize)) != NULL)
+    if ((bp = find_next_fit(asize)) != NULL)
     {
         place(bp, asize);
         return bp;
@@ -257,7 +257,7 @@ static void place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));
 
-    // 필요한 블록 이외에 남는게 16바이트 이상이면 - free header, footer 들어갈 자리 2워드
+    // 필요한 블록 이외에 남는게 16바이트 이상이면 - free header, footer 들어갈 자리 2워드 + payload 2워드?
     if ((csize - asize) >= (2 * DSIZE))
     {
         PUT(HDRP(bp), PACK(asize, 1));

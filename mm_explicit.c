@@ -24,7 +24,7 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "jungle3rd_6th_week_4",
+    "jungle3rd_week6_team4_explicit",
     /* First member's full name */
     "Dongjin Shin",
     /* First member's email address */
@@ -41,7 +41,7 @@ team_t team = {
 // size < 0 -> 0, size <= 8 -> 8, size > 8 -> 8의 배수로
 #define ALIGN(size) (((size) + (ALIGNMENT - 1)) & ~0x7)
 
-//sizeof(size_t) = 10, ALIGN(sizeof(size_t)) = 16
+//sizeof(size_t) = 8, ALIGN(sizeof(size_t)) = 8
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 /* Basic constants and macros */
