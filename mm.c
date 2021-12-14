@@ -77,7 +77,7 @@ team_t team = {
 
 
 static void *heap_listp;
-static void *free_listp; /* for next-fit */
+static void *free_listp; 
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
