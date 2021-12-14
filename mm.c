@@ -73,7 +73,7 @@ team_t team = {
 
 /* get free list SUCC and PREC adresses memory ..? */
 #define SUCC_FREE(bp) (*(char **)(bp))
-#define PREC_FREE(bp) (*(char **)((bp + WSIZE)))
+#define PRED_FREE(bp) (*(char **)((bp + WSIZE)))
 
 
 static void *heap_listp;
@@ -206,7 +206,11 @@ static void *coalesce(void *bp)
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
     
-    if (prev_alloc && !next_alloc)
+    if (prev_alloc && next_alloc){
+        insert_block(bp);
+        return bp;
+    }
+    else if (prev_alloc && !next_alloc)
     { /* Case 2 */
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         remove_block(NEXT_BLKP(bp));
@@ -278,18 +282,18 @@ static void *find_fit(size_t asize)
 
 static void remove_block(void *bp){
     if (bp == free_listp){
-        PREC_FREE(SUCC_FREE(bp)) = NULL;
+        PRED_FREE(SUCC_FREE(bp)) = NULL;
         free_listp = SUCC_FREE(bp);
     }else{
-        SUCC_FREE(PREC_FREE(bp)) = SUCC_FREE(bp);
-        PREC_FREE(SUCC_FREE(bp)) = PREC_FREE(bp);
+        SUCC_FREE(PRED_FREE(bp)) = SUCC_FREE(bp);
+        PRED_FREE(SUCC_FREE(bp)) = PRED_FREE(bp);
     }
 
     return;
 }
 static void insert_block(void *bp){
-    PREC_FREE(free_listp) = bp;
-    PREC_FREE(bp) = NULL;
+    PRED_FREE(free_listp) = bp;
+    PRED_FREE(bp) = NULL;
     SUCC_FREE(bp) = free_listp;
     free_listp = bp;
     return;
