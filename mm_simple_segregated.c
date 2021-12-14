@@ -93,12 +93,6 @@ static void insert_block(void *bp, size_t size);
  */
 int mm_init(void)
 {
-    int list;
-    
-    for (list = 0; list < LISTLIMIT; list++) {
-        segregation_list[list] = NULL;
-    }
-
     /* Create the initial empty heap */
     if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *)-1)
     {
@@ -372,5 +366,23 @@ static void insert_block(void *bp, size_t size){
         }
     }
 
+    return;
+}
+
+void main()
+{
+    void *vp;
+    if (vp == NULL){
+        printf("ok\n\n");
+    }
+
+    mem_init();
+    mm_init();
+    printf("%p\n", heap_listp);
+    printf("header heap: %p \t\t header heap get data:%d \t footer heap: %p\n", HDRP(heap_listp), GET(HDRP(heap_listp)), (FTRP(heap_listp)));
+
+    printf("header heap+2: %p \t\t header heap+1 get data:%d\n", HDRP(heap_listp+8), GET(HDRP(heap_listp+8))); 
+    
+    
     return;
 }
