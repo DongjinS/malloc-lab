@@ -24,7 +24,7 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "jungle3rd_week6_team4_implicit",
+    "jungle3rd_week6_team4_explicit",
     /* First member's full name */
     "Dongjin Shin",
     /* First member's email address */
@@ -77,13 +77,10 @@ team_t team = {
 
 
 static void *heap_listp;
-static void *prev_fit;; /* for next-fit */
-static void *free_listp;; /* for next-fit */
+static void *free_listp; /* for next-fit */
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
-static void *find_next_fit(size_t asize);
-static void *find_best_fit(size_t asize);
 static void place(void *bp, size_t asize);
 static void remove_block(void *bp);
 static void insert_block(void *bp);
@@ -212,8 +209,8 @@ static void *coalesce(void *bp)
     }
     else if (prev_alloc && !next_alloc)
     { /* Case 2 */
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         remove_block(NEXT_BLKP(bp));
+        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
         // 왜 이게 아니지?? - PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
@@ -222,19 +219,19 @@ static void *coalesce(void *bp)
     // 이전블록만 가가용 가능 하면
     else if (!prev_alloc && next_alloc)
     { /* Case 3 */
+        remove_block(PREV_BLKP(bp));
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
-        remove_block(PREV_BLKP(bp));
         bp = PREV_BLKP(bp);
     }
     else if (!prev_alloc && !next_alloc)
     {
+        remove_block(PREV_BLKP(bp));
+        remove_block(NEXT_BLKP(bp));
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
-        remove_block(PREV_BLKP(bp));
-        remove_block(NEXT_BLKP(bp));
         bp = PREV_BLKP(bp);
     }
 
