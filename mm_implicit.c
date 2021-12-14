@@ -113,33 +113,10 @@ int mm_init(void)
 void *mm_malloc(size_t size)
 {
     int asize = ALIGN(size + SIZE_T_SIZE);
-    // void *p = mem_sbrk(asize);
-    // if (p == (void *)-1)
-    // return NULL;
-    // else {
-    //     *(size_t *)p = size;
-    //     return (void *)((char *)p + SIZE_T_SIZE);
-    // }
-
+    
     // size_t asize;      /* Adjusted block size */
     size_t extendsize; /* Amount to extend heap if no fit */
     char *bp;
-
-    // /* Ignore spurious requests */
-    // if (size == 0)
-    // {
-    //     return NULL;
-    // }
-
-    // /* Adjust block size to include overhead and alignment reqs. */
-    // if (size <= DSIZE)
-    // {
-    //     asize = 2 * DSIZE;
-    // }
-    // else
-    // {
-    //     asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
-    // }
 
     /* Search the free list for a fit */
     if ((bp = find_next_fit(asize)) != NULL)
@@ -182,7 +159,6 @@ void *mm_realloc(void *ptr, size_t size)
     newptr = mm_malloc(size);
     if (newptr == NULL)
         return NULL;
-    // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
     copySize = GET_SIZE(HDRP(oldptr));
     if (size < copySize)
         copySize = size;
