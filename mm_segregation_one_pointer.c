@@ -73,9 +73,8 @@ team_t team = {
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp)-DSIZE)))
 
 /* get free list SUCC and PREC adresses memory ..? */
-#define SUCC_FREE(bp) (*(char **)(bp))
-#define PRED_FREE(bp) (*(char **)((bp + WSIZE)))
-
+#define PRED_FREE(bp) ((*(size_t *)(bp)))
+#define SUCC_FREE(bp) ((*(size_t *)(bp + WSIZE)))
 
 static void *heap_listp;
 static void *segregation_list[LISTLIMIT];
@@ -93,14 +92,20 @@ static void insert_block(void *bp, size_t size);
  */
 int mm_init(void)
 {
+    int list;
+    
+    for (list = 0; list < LISTLIMIT; list++) {
+        segregation_list[list] = NULL;
+    }
+
     /* Create the initial empty heap */
     if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *)-1)
     {
         return -1;
     }
     PUT(heap_listp, 0);                            /* Alignment padding */
-    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE*2, 1)); /* Prologue header */
-    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE*2, 1)); /* Prologue footer */
+    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1)); /* Prologue header */
+    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1)); /* Prologue footer */
     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));     /* Epilogue header */
     heap_listp = heap_listp+2*WSIZE;
     
@@ -152,8 +157,6 @@ void mm_free(void *ptr)
     PUT(HDRP(ptr), PACK(size, 0));
     PUT(FTRP(ptr), PACK(size, 0));
 
-    insert_block(ptr, size);
-
     coalesce(ptr);
 }
 
@@ -193,7 +196,6 @@ static void *extend_heap(size_t words)
     PUT(HDRP(bp), PACK(size, 0));         /* free block header */
     PUT(FTRP(bp), PACK(size, 0));         /* free block footer */
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1)); /* New epilogue */
-    insert_block(bp, size);
 
     /* Coalesce if the previous block was free */
     return coalesce(bp);
@@ -208,12 +210,11 @@ static void *coalesce(void *bp)
     size_t size = GET_SIZE(HDRP(bp));
     
     if (prev_alloc && next_alloc){
-        insert_block(bp, size);
+        insert_block(bp,size);
         return bp;
     }
     else if (prev_alloc && !next_alloc)
     { /* Case 2 */
-        remove_block(bp);
         remove_block(NEXT_BLKP(bp));
 
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
@@ -225,7 +226,6 @@ static void *coalesce(void *bp)
     // 이전블록만 가가용 가능 하면
     else if (!prev_alloc && next_alloc)
     { /* Case 3 */
-        remove_block(bp);
         remove_block(PREV_BLKP(bp));
 
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
@@ -235,7 +235,6 @@ static void *coalesce(void *bp)
     }
     else if (!prev_alloc && !next_alloc)
     {
-        remove_block(bp);
         remove_block(PREV_BLKP(bp));
         remove_block(NEXT_BLKP(bp));
 
@@ -261,7 +260,7 @@ static void place(void *bp, size_t asize)
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(csize - asize, 0));
         PUT(FTRP(bp), PACK(csize - asize, 0));
-        insert_block(bp, (csize - asize));
+        coalesce(bp);
     }
     else
     {
@@ -279,7 +278,7 @@ static void *find_fit(size_t asize)
     size_t searchsize = asize;
 
     while (list < LISTLIMIT){
-        if ((list = LISTLIMIT-1) || (searchsize <= 1)&&(segregation_list[list] != NULL)){
+        if ((list == LISTLIMIT-1) || (searchsize <= 1)&&(segregation_list[list] != NULL)){
             bp = segregation_list[list];
 
             while ((bp != NULL) && (asize > GET_SIZE(HDRP(bp)))){
@@ -366,23 +365,5 @@ static void insert_block(void *bp, size_t size){
         }
     }
 
-    return;
-}
-
-void main()
-{
-    void *vp;
-    if (vp == NULL){
-        printf("ok\n\n");
-    }
-
-    mem_init();
-    mm_init();
-    printf("%p\n", heap_listp);
-    printf("header heap: %p \t\t header heap get data:%d \t footer heap: %p\n", HDRP(heap_listp), GET(HDRP(heap_listp)), (FTRP(heap_listp)));
-
-    printf("header heap+2: %p \t\t header heap+1 get data:%d\n", HDRP(heap_listp+8), GET(HDRP(heap_listp+8))); 
-    
-    
     return;
 }
