@@ -81,7 +81,7 @@ static void *free_listp;
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
-static void place(void *bp, size_t asize);
+static void *place(void *bp, size_t asize);
 static void remove_block(void *bp);
 static void insert_block(void *bp);
 
@@ -105,7 +105,7 @@ int mm_init(void)
     free_listp = heap_listp+2*WSIZE;
     
     /* Extended the empty heap with a free block of CHUNKSIZE bytes */
-    if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
+    if (extend_heap(1<<2) == NULL)
     {
         return -1;
     }
@@ -128,7 +128,7 @@ void *mm_malloc(size_t size)
     /* Search the free list for a fit */
     if ((bp = find_fit(asize)) != NULL)
     {
-        place(bp, asize);
+        bp = place(bp, asize);
         return bp;
     }
 
@@ -138,7 +138,7 @@ void *mm_malloc(size_t size)
     {
         return NULL;
     }
-    place(bp, asize);
+    bp = place(bp, asize);
     return bp;
 }
 
@@ -203,6 +203,7 @@ static void *coalesce(void *bp)
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
     
+    /* Case 1 */
     if (prev_alloc && next_alloc){
         insert_block(bp);
         return bp;
@@ -213,10 +214,7 @@ static void *coalesce(void *bp)
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
-        // 왜 이게 아니지?? - PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
-        // 왜냐면!-- size가 이미 바껴서 FTRP(bp)하면 합쳐진 블록의 끝을 잘 찾는다!!
     }
-    // 이전블록만 가가용 가능 하면
     else if (!prev_alloc && next_alloc)
     { /* Case 3 */
         remove_block(PREV_BLKP(bp));
@@ -225,6 +223,7 @@ static void *coalesce(void *bp)
         PUT(FTRP(bp), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
+    /* Case 4 */
     else if (!prev_alloc && !next_alloc)
     {
         remove_block(PREV_BLKP(bp));
@@ -239,24 +238,35 @@ static void *coalesce(void *bp)
     return bp;
 }
 
-static void place(void *bp, size_t asize)
+static void *place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));
     remove_block(bp);
     // 필요한 블록 이외에 남는게 16바이트 이상이면 - free header, footer 들어갈 자리 2워드 + payload 2워드?
     if ((csize - asize) >= (2 * DSIZE))
     {
+        if (asize>=100){
+            PUT(HDRP(bp), PACK(csize - asize, 0));
+            PUT(FTRP(bp), PACK(csize - asize, 0));
+            bp = NEXT_BLKP(bp);
+            PUT(HDRP(bp), PACK(asize, 1));
+            PUT(FTRP(bp), PACK(asize, 1));
+            coalesce(PREV_BLKP(bp));
+            return bp;
+        }
         PUT(HDRP(bp), PACK(asize, 1));
         PUT(FTRP(bp), PACK(asize, 1));
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(csize - asize, 0));
         PUT(FTRP(bp), PACK(csize - asize, 0));
         coalesce(bp);
+        return PREV_BLKP(bp);
     }
     else
     {
         PUT(HDRP(bp), PACK(csize, 1));
         PUT(FTRP(bp), PACK(csize, 1));
+        return bp;
     }
 }
 
@@ -293,23 +303,5 @@ static void insert_block(void *bp){
     PRED_FREE(bp) = NULL;
     SUCC_FREE(bp) = free_listp;
     free_listp = bp;
-    return;
-}
-
-void main()
-{
-    void *vp;
-    if (vp == NULL){
-        printf("ok\n\n");
-    }
-
-    mem_init();
-    mm_init();
-    printf("%p\n", heap_listp);
-    printf("header heap: %p \t\t header heap get data:%d \t footer heap: %p\n", HDRP(heap_listp), GET(HDRP(heap_listp)), (FTRP(heap_listp)));
-
-    printf("header heap+2: %p \t\t header heap+1 get data:%d\n", HDRP(heap_listp+8), GET(HDRP(heap_listp+8))); 
-    
-    
     return;
 }

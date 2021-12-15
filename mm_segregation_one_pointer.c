@@ -24,11 +24,11 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "jungle3rd_week6_team4_segregation",
+    "jungle3rd_week6_team4_segregation_*",
     /* First member's full name */
     "Dongjin Shin",
     /* First member's email address */
-    "bovik@cs.cmu.edu",
+    "gmail.com",
     /* Second member's full name (leave blank if none) */
     "",
     /* Second member's email address (leave blank if none) */
@@ -38,10 +38,8 @@ team_t team = {
 #define ALIGNMENT 8
 
 /* rounds up to the nearest multiple of ALIGNMENT */
-// size < 0 -> 0, size <= 8 -> 8, size > 8 -> 8의 배수로
 #define ALIGN(size) (((size) + (ALIGNMENT - 1)) & ~0x7)
 
-//sizeof(size_t) = 8, ALIGN(sizeof(size_t)) = 8
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 /* Basic constants and macros */
@@ -72,9 +70,11 @@ team_t team = {
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp)-WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp)-DSIZE)))
 
-/* get free list SUCC and PREC adresses memory ..? */
-#define PRED_FREE(bp) ((*(size_t *)(bp)))
-#define SUCC_FREE(bp) ((*(size_t *)(bp + WSIZE)))
+/* get free list's SUCC and PREC pointer */
+#define PRED_FREE(bp) (*(size_t *)(bp))
+#define SUCC_FREE(bp) (*(size_t *)(bp + WSIZE))
+
+
 
 static void *heap_listp;
 static void *segregation_list[LISTLIMIT];
@@ -82,7 +82,7 @@ static void *segregation_list[LISTLIMIT];
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
-static void place(void *bp, size_t asize);
+static void *place(void *bp, size_t asize);
 static void remove_block(void *bp);
 static void insert_block(void *bp, size_t size);
 
@@ -110,7 +110,7 @@ int mm_init(void)
     heap_listp = heap_listp+2*WSIZE;
     
     /* Extended the empty heap with a free block of CHUNKSIZE bytes */
-    if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
+    if (extend_heap(1<<2) == NULL)
     {
         return -1;
     }
@@ -133,7 +133,7 @@ void *mm_malloc(size_t size)
     /* Search the free list for a fit */
     if ((bp = find_fit(asize)) != NULL)
     {
-        place(bp, asize);
+        bp = place(bp, asize);
         return bp;
     }
 
@@ -143,7 +143,7 @@ void *mm_malloc(size_t size)
     {
         return NULL;
     }
-    place(bp, asize);
+    bp = place(bp, asize);
     return bp;
 }
 
@@ -173,6 +173,12 @@ void *mm_realloc(void *ptr, size_t size)
     if (newptr == NULL)
         return NULL;
     copySize = GET_SIZE(HDRP(oldptr));
+
+    if (size == 0){
+        mm_free(ptr);
+        return NULL;
+    }
+
     if (size < copySize)
         copySize = size;
     memcpy(newptr, oldptr, copySize);
@@ -248,24 +254,35 @@ static void *coalesce(void *bp)
     return bp;
 }
 
-static void place(void *bp, size_t asize)
+static void *place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));
     remove_block(bp);
     // 필요한 블록 이외에 남는게 16바이트 이상이면 - free header, footer 들어갈 자리 2워드 + payload 2워드?
     if ((csize - asize) >= (2 * DSIZE))
     {
+        if (asize>=100){
+            PUT(HDRP(bp), PACK(csize - asize, 0));
+            PUT(FTRP(bp), PACK(csize - asize, 0));
+            bp = NEXT_BLKP(bp);
+            PUT(HDRP(bp), PACK(asize, 1));
+            PUT(FTRP(bp), PACK(asize, 1));
+            coalesce(PREV_BLKP(bp));
+            return bp;
+        }
         PUT(HDRP(bp), PACK(asize, 1));
         PUT(FTRP(bp), PACK(asize, 1));
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(csize - asize, 0));
         PUT(FTRP(bp), PACK(csize - asize, 0));
         coalesce(bp);
+        return PREV_BLKP(bp);
     }
     else
     {
         PUT(HDRP(bp), PACK(csize, 1));
         PUT(FTRP(bp), PACK(csize, 1));
+        return bp;
     }
 }
 
